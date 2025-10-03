@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Powder</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏔️</text></svg>">
+
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    .flex {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    body {
+      flex-direction: column;
+      height: 100dvh;
+    }
+
+    #game {
+      width: 800px;
+      height: 600px;
+    }
+
+    #material-radio-container {
+      border: 1px solid white;
+      padding: 5px;
+    }
+
+    legend {
+      font-size: large;
+      padding: 5px;
+      font-weight: bold;
+    }
+
+    #reset-btn {
+      height: fit-content;
+      width: fit-content;
+      padding: 10px;
+    }
+  </style>
+
+  <script type="module">
+    const $ = (element) => document.querySelector(element)
+    
+    const canvas = $('#game')
+    const materialRadioContainer = $('#material-radio-container')
+    const materialRadioTemplate = $('#material-radio-template')
+    const resetBtn = $('#reset-btn')
+    const ctx = canvas.getContext('2d')
+
+    const game = {
+      x: 0,
+      y: 0,
+      width: canvas.width,
+      height: canvas.height,
+    }
+    
+    const MATERIALS = {
+      VOID: {
+        color: 'rgb(0,0,0)',
+        move: null
+      },
+      SAND: {
+        color: 'rgb(255,232,173)',
+        move: (cell, grid, nextGrid) => {
+          const pos = getCell(cell.x, cell.y)
+          if (!pos) return
+          const {row, col} = pos
+          const nextRow = row + 1
+          if (nextRow >= rows) return
+          
+          const candidates = [col, col - 1, col + 1]
+
+          const targetCol = candidates.find(candidate => 
+            candidate >= 0 && candidate < cols && grid[nextRow][candidate].material === MATERIALS.VOID && nextGrid[nextRow][candidate].material === MATERIALS.VOID
+          )
+
+          if (targetCol == null) return
+
+          nextGrid[nextRow][targetCol].material = MATERIALS.SAND
+          nextGrid[row][col].material = MATERIALS.VOID
+        }
+      },
+      WATER: {
+        color: 'rgb(23,131,255)',
+        move: (cell, grid, nextGrid) => {
+          const pos = getCell(cell.x, cell.y)
+          if (!pos) return
+          const { row, col } = pos
+
+          const tryMove = (r, c) => {
+            if (r < 0 || r >= rows || c < 0 || c >= cols) return false
+            if (grid[r][c].material === MATERIALS.VOID && nextGrid[r][c].material === MATERIALS.VOID) {
+              nextGrid[r][c].material = MATERIALS.WATER
+              nextGrid[row][col].material = MATERIALS.VOID
+              return true
+            }
+            return false
+          }
+
+          if (tryMove(row + 1, col)) return
+          if (tryMove(row + 1, col - 1)) return
+          if (tryMove(row + 1, col + 1)) return
+          if (tryMove(row, col - 1)) return
+          if (tryMove(row, col + 1)) return
+        }
+      },
+      STONE: {
+        color: 'rgb(128,128,128)',
+        move: (cell, grid, nextGrid) => {
+          const pos = getCell(cell.x, cell.y)
+          if (!pos) return
+          const {row, col} = pos
+          const nextRow = row + 1
+          if (nextRow < rows && grid[nextRow][col].material === MATERIALS.VOID && nextGrid[nextRow][col].material === MATERIALS.VOID) {
+            nextGrid[nextRow][col].material = MATERIALS.STONE
+            nextGrid[row][col].material = MATERIALS.VOID
+          }
+        }
+      },
+      METAL: {
+        color: 'rgb(54,54,54)',
+        move: null
+      },
+    }
+
+    const cell = {
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      material: MATERIALS.VOID
+    }
+
+    const rows = Math.floor(game.height / cell.height)
+    const cols = Math.floor(game.width  / cell.width)
+    
+    let grid = []
+    let animationFrameID = null
+
+    const mouse = {
+      x: 0,
+      y: 0,
+      isDrawing: false
+    }
+
+    let selectedMaterial = MATERIALS.VOID
+
+    function getCell(x, y) {
+      const col = Math.floor(x / cell.width)
+      const row = Math.floor(y / cell.height)
+      if (row < 0 || row >= rows || col < 0 || col >= cols) return null
+      return { row, col }
+    }
+
+    function handleDrawing(nextGrid, row, col, material) {
+      if (!mouse.isDrawing) return
+      if (row == null || col == null) return
+      const cell = nextGrid[row][col]
+      if (cell.material == selectedMaterial) return
+      cell.material = material
+    }
+
+    function fillGrid() {
+      grid = Array.from({length: rows}, (_, row) => 
+        Array.from({length: cols}, (_, col) => ({
+          ...cell,
+          x: col * cell.width,
+          y: row * cell.height
+        }))
+      )
+    }
+
+    function drawGrid() {
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const cell = grid[row][col]
+          ctx.fillStyle = cell.material.color
+          ctx.fillRect(cell.x, cell.y, cell.width, cell.height)
+        }
+      }
+    }
+
+    function moveCells(grid) {
+      const nextGrid = Array.from({ length: rows }, (_, r) =>
+        Array.from({ length: cols }, (_, c) => ({
+          x: c * cell.width,
+          y: r * cell.height,
+          width: cell.width,
+          height: cell.height,
+          material: grid[r][c].material
+        }))
+      )
+      for (let row = rows - 1; row >= 0; row--) {
+        for (let col = 0; col < cols; col++) {
+          const cell = nextGrid[row][col]
+          if (cell.material.move) {
+            cell.material.move(cell, grid, nextGrid)
+          }
+        }
+      }
+      return nextGrid
+    }
+
+    function drawHighlight(row, col) {
+      if (row == null || col == null) return
+      const cell = grid[row][col]
+      const [r, g, b] = cell.material.color.match(/\d+/g).map(channel => Math.min(255, +channel + 40))
+      ctx.fillStyle = `rgb(${r},${g},${b})`
+      ctx.fillRect(cell.x, cell.y, cell.width, cell.height)
+    }
+
+    function clearElement(element) {
+      ctx.clearRect(element.x, element.y, element.width, element.height)
+    }
+
+    function addMaterialRadioButtons(materials) {
+      Object.entries(materials).forEach(([key, value]) => {
+        const clone = materialRadioTemplate.content.cloneNode(true)
+        const input = clone.querySelector("input")
+        const label = clone.querySelector(".label-text")
+
+        input.value = key
+        label.textContent = key
+        input.addEventListener("change", () => {
+          selectedMaterial = MATERIALS[key]
+        })
+        materialRadioContainer.appendChild(clone)
+      });
+    }
+    
+
+    resetBtn.addEventListener('click', start)
+
+    canvas.addEventListener('mousemove', (event) => {
+      mouse.x = event.offsetX
+      mouse.y = event.offsetY
+    })
+
+    canvas.addEventListener('mousedown', (event) => {
+      mouse.isDrawing = true
+    })
+
+    canvas.addEventListener('mouseup', (event) => {
+      if (mouse.isDrawing) {
+        mouse.isDrawing = false
+      }
+    })
+
+    function stop() {
+      if (animationFrameID == null) return
+      window.cancelAnimationFrame(animationFrameID)
+      animationFrameID = null
+    }
+
+    function start() {
+      stop()
+      fillGrid()
+      animationFrameID = window.requestAnimationFrame(process)
+    }
+
+    function process() {
+
+      clearElement(game)
+      drawGrid()
+
+      const nextGrid = moveCells(grid)
+      const mousePos = getCell(mouse.x, mouse.y)
+
+      if (mousePos) {
+        drawHighlight(mousePos.row, mousePos.col)
+        handleDrawing(nextGrid, mousePos.row, mousePos.col, selectedMaterial)
+      }
+
+      grid = nextGrid
+
+      animationFrameID = window.requestAnimationFrame(process)
+    }
+
+    addMaterialRadioButtons(MATERIALS)
+    start()
+    
+  </script>
+</head>
+<body class="flex">
+   <template id="material-radio-template">
+    <label>
+      <input type="radio" name="materials" value=""/>
+      <span class="label-text"></span>
+    </label>
+    <br>
+  </template>
+  <canvas id="game" width="800" height="600"></canvas>
+  <section id="menu" class="flex">
+    <fieldset id="material-radio-container" class="flex">
+      <legend>Material list:</legend>
+    </fieldset>
+    <input type="reset" id="reset-btn" name="reset" value="Reset">
+  </section>
+</body>
+</html>
