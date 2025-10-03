@@ -77,8 +77,8 @@
       },
       SAND: {
         color: 'rgb(255,232,173)',
-        move: (cell, grid, nextGrid) => {
-          const pos = getCell(cell.x, cell.y)
+        move: (cell, grid) => {
+          const pos = getCellPos(cell.x, cell.y)
           if (!pos) return
           const {row, col} = pos
           const nextRow = row + 1
@@ -87,49 +87,52 @@
           const candidates = [col, col - 1, col + 1]
 
           const targetCol = candidates.find(candidate => 
-            candidate >= 0 && candidate < cols && grid[nextRow][candidate].material === MATERIALS.VOID && nextGrid[nextRow][candidate].material === MATERIALS.VOID
+            candidate >= 0 && candidate < cols && grid[nextRow][candidate].material === MATERIALS.VOID
           )
 
           if (targetCol == null) return
 
-          nextGrid[nextRow][targetCol].material = MATERIALS.SAND
-          nextGrid[row][col].material = MATERIALS.VOID
+          grid[nextRow][targetCol].material = MATERIALS.SAND
+          grid[row][col].material = MATERIALS.VOID
         }
       },
       WATER: {
         color: 'rgb(23,131,255)',
-        move: (cell, grid, nextGrid) => {
-          const pos = getCell(cell.x, cell.y)
+        move: (cell, grid) => {
+          const pos = getCellPos(cell.x, cell.y)
           if (!pos) return
           const { row, col } = pos
 
           const tryMove = (r, c) => {
             if (r < 0 || r >= rows || c < 0 || c >= cols) return false
-            if (grid[r][c].material === MATERIALS.VOID && nextGrid[r][c].material === MATERIALS.VOID) {
-              nextGrid[r][c].material = MATERIALS.WATER
-              nextGrid[row][col].material = MATERIALS.VOID
-              return true
-            }
-            return false
+            if (grid[r][c].material != MATERIALS.VOID) return false
+            grid[r][c].material = MATERIALS.WATER
+            grid[row][col].material = MATERIALS.VOID
+            return true
           }
 
           if (tryMove(row + 1, col)) return
+          console.log("a");
           if (tryMove(row + 1, col - 1)) return
+          console.log("b");
           if (tryMove(row + 1, col + 1)) return
+          console.log("c");
           if (tryMove(row, col - 1)) return
+          console.log("d");
           if (tryMove(row, col + 1)) return
+          console.log("e");
         }
       },
       STONE: {
         color: 'rgb(128,128,128)',
-        move: (cell, grid, nextGrid) => {
-          const pos = getCell(cell.x, cell.y)
+        move: (cell, grid) => {
+          const pos = getCellPos(cell.x, cell.y)
           if (!pos) return
           const {row, col} = pos
           const nextRow = row + 1
-          if (nextRow < rows && grid[nextRow][col].material === MATERIALS.VOID && nextGrid[nextRow][col].material === MATERIALS.VOID) {
-            nextGrid[nextRow][col].material = MATERIALS.STONE
-            nextGrid[row][col].material = MATERIALS.VOID
+          if (nextRow < rows && grid[nextRow][col].material === MATERIALS.VOID) {
+            grid[nextRow][col].material = MATERIALS.STONE
+            grid[row][col].material = MATERIALS.VOID
           }
         }
       },
@@ -161,17 +164,17 @@
 
     let selectedMaterial = MATERIALS.VOID
 
-    function getCell(x, y) {
+    function getCellPos(x, y) {
       const col = Math.floor(x / cell.width)
       const row = Math.floor(y / cell.height)
       if (row < 0 || row >= rows || col < 0 || col >= cols) return null
       return { row, col }
     }
 
-    function handleDrawing(nextGrid, row, col, material) {
+    function handleDrawing(row, col, material) {
       if (!mouse.isDrawing) return
       if (row == null || col == null) return
-      const cell = nextGrid[row][col]
+      const cell = grid[row][col]
       if (cell.material == selectedMaterial) return
       cell.material = material
     }
@@ -197,24 +200,14 @@
     }
 
     function moveCells(grid) {
-      const nextGrid = Array.from({ length: rows }, (_, r) =>
-        Array.from({ length: cols }, (_, c) => ({
-          x: c * cell.width,
-          y: r * cell.height,
-          width: cell.width,
-          height: cell.height,
-          material: grid[r][c].material
-        }))
-      )
       for (let row = rows - 1; row >= 0; row--) {
         for (let col = 0; col < cols; col++) {
-          const cell = nextGrid[row][col]
+          const cell = grid[row][col]
           if (cell.material.move) {
-            cell.material.move(cell, grid, nextGrid)
+            cell.material.move(cell, grid)
           }
         }
       }
-      return nextGrid
     }
 
     function drawHighlight(row, col) {
@@ -279,15 +272,13 @@
       clearElement(game)
       drawGrid()
 
-      const nextGrid = moveCells(grid)
-      const mousePos = getCell(mouse.x, mouse.y)
+      moveCells(grid)
+      const mousePos = getCellPos(mouse.x, mouse.y)
 
       if (mousePos) {
         drawHighlight(mousePos.row, mousePos.col)
-        handleDrawing(nextGrid, mousePos.row, mousePos.col, selectedMaterial)
+        handleDrawing(mousePos.row, mousePos.col, selectedMaterial)
       }
-
-      grid = nextGrid
 
       animationFrameID = window.requestAnimationFrame(process)
     }
