@@ -1,34 +1,132 @@
 
 export const MATERIALS = {
-  VOID: "void",
-  SAND: "sand",
-  STONE: "stone",
-  WATER: "water",
-  METAL: "metal",
+  VOID: {
+    name: 'void',
+    color:'rgb(0,0,0)'
+  },
+  SAND: {
+    name: 'sand',
+    color:'rgb(255,232,173)'
+  },
+  STONE: {
+    name: 'stone',
+    color:'rgb(128,128,128)'
+  },
+  WATER: {
+    name: 'water',
+    color:'rgb(23,131,255)'
+  },
+  METAL: {
+    name: 'metal',
+    color:'rgb(54,54,54)'
+  },
 }
 
 export class Material {
-  constructor ({name, color}) {
-    this.name = name
-    this.color = color
+  tryMove(r, c, grid) {
+    if (r < 0 || r >= grid.rows || c < 0 || c >= grid.cols) return false
+    if (!(grid.grid[r][c].material instanceof Void)) return false
+    return true
   }
 
   move(){}
+
+  // swap(grid, currentRow, currentCol, targetRow, targetCol, NewMaterial) {
+  //   grid.grid[targetRow][targetCol].material = new NewMaterial()
+  //   grid.grid[currentRow][currentCol].material = new Void()
+  // }
 }
 
-export class Void extends Material {}
+export class Void extends Material {
+  name = MATERIALS.VOID.name
+  color = MATERIALS.VOID.color
+}
+
+export class Metal extends Material {
+  name = MATERIALS.METAL.name
+  color = MATERIALS.METAL.color
+}
 
 export class StoneLike extends Material {
-  move(cell, grid, rows){
-    const pos = getCell(cell.x, cell.y)
+  name = MATERIALS.STONE.name
+  color = MATERIALS.STONE.color
+
+  move(cell, grid){
+    const pos = grid.getCellPos(cell.x, cell.y)
     if (!pos) return
     const {row, col} = pos
-    const nextRow = row + 1
-    if (!(nextRow < rows)) return
-    const nextCell = grid[nextRow][col]
-    if (nextCell && nextCell.material == MATERIALS.VOID) {
-      cell.material = new Void()
-      nextCell.material = new StoneLike(this.name, this.color)
+    if (this.tryMove(row + 1, col, grid)) {
+      grid.grid[row + 1][col].material = new StoneLike()
+      grid.grid[row][col].material = new Void()
+      return
+    }
+  }
+}
+
+export class SandLike extends Material {
+  name = MATERIALS.SAND.name
+  color = MATERIALS.SAND.color
+
+  move(cell, grid) {
+    const pos = grid.getCellPos(cell.x, cell.y)
+    if (!pos) return
+    const {row, col} = pos
+
+    if (this.tryMove(row + 1, col, grid)) {
+      grid.grid[row + 1][col].material = new SandLike()
+      grid.grid[row][col].material = new Void()
+      return
+    }
+    if (this.tryMove(row + 1, col - 1, grid)) {
+      grid.grid[row + 1][col - 1].material = new SandLike()
+      grid.grid[row][col].material = new Void()
+      return
+    }
+    if (this.tryMove(row + 1, col + 1, grid)) {
+      grid.grid[row + 1][col + 1].material = new SandLike()
+      grid.grid[row][col].material = new Void()
+      return
+    }
+  }
+}
+
+export class WaterLike extends Material {
+  name = MATERIALS.WATER.name
+  color = MATERIALS.WATER.color
+
+  move(cell, grid) {
+    const pos = grid.getCellPos(cell.x, cell.y)
+    if (!pos) return
+    const { row, col } = pos
+
+    if (this.tryMove(row + 1, col, grid)) {
+      grid.grid[row + 1][col].material = new WaterLike()
+      grid.grid[row][col].material = new Void()
+      return
+    }
+
+    if (Math.random() < 0.5) {
+      if (this.tryMove(row, col - 1, grid)) {
+        grid.grid[row][col - 1].material = new WaterLike()
+        grid.grid[row][col].material = new Void()
+        return
+      }
+      if (this.tryMove(row, col + 1, grid)) {
+        grid.grid[row][col + 1].material = new WaterLike()
+        grid.grid[row][col].material = new Void()
+        return
+      }
+    } else {
+      if (this.tryMove(row, col + 1, grid)) {
+        grid.grid[row][col + 1].material = new WaterLike()
+        grid.grid[row][col].material = new Void()
+        return
+      }
+      if (this.tryMove(row, col - 1, grid)) {
+        grid.grid[row][col - 1].material = new WaterLike()
+        grid.grid[row][col].material = new Void()
+        return
+      }
     }
   }
 }

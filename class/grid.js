@@ -1,3 +1,5 @@
+import { Cell } from "./cell.js"
+import { Void } from "./material.js"
 
 export class Grid {
   constructor(game, cell) {
@@ -7,19 +9,23 @@ export class Grid {
   }
 
   fillGrid(cell) {
-    return Array.from({ length: rows }, (_, row) =>
-      Array.from({ length: cols }, (_, col) => ({
-        ...cell,
-        x: col * cell.width,
-        y: row * cell.height
-      }))
+    return Array.from({ length: this.rows }, (_, row) =>
+      Array.from({ length: this.cols }, (_, col) =>
+        new Cell({
+          x: col * cell.width,
+          y: row * cell.height,
+          width: cell.width,
+          height: cell.height,
+          material: new Void()
+        })
+      )
     )
   }
 
-  getCellPos(cell) {
-    const col = Math.floor(cell.x / cell.width)
-    const row = Math.floor(cell.y / cell.height)
-    if (row < 0 || row >= rows || col < 0 || col >= cols) return null
+  getCellPos(x, y) {
+    const col = Math.floor(x / this.grid[0][0].width)
+    const row = Math.floor(y / this.grid[0][0].height)
+    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return null
     return { row, col }
   }
 }

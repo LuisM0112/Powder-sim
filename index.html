@@ -55,6 +55,11 @@
   </style>
 
   <script type="module">
+
+    import { Material, Void, Metal, StoneLike, SandLike, WaterLike } from "./class/material.js"
+    import { Grid } from "./class/grid.js"
+    import { Cell } from "./class/cell.js"
+
     const $ = (element) => document.querySelector(element)
     
     const canvas = $('#game')
@@ -69,91 +74,18 @@
       width: canvas.width,
       height: canvas.height,
     }
-    
-    const MATERIALS = {
-      VOID: {
-        color: 'rgb(0,0,0)',
-        move: null
-      },
-      SAND: {
-        color: 'rgb(255,232,173)',
-        move: (cell, grid) => {
-          const pos = getCellPos(cell.x, cell.y)
-          if (!pos) return
-          const {row, col} = pos
-          const nextRow = row + 1
-          if (nextRow >= rows) return
-          
-          const candidates = [col, col - 1, col + 1]
 
-          const targetCol = candidates.find(candidate => 
-            candidate >= 0 && candidate < cols && grid[nextRow][candidate].material === MATERIALS.VOID
-          )
+    let animationFrameID = null
 
-          if (targetCol == null) return
-
-          grid[nextRow][targetCol].material = MATERIALS.SAND
-          grid[row][col].material = MATERIALS.VOID
-        }
-      },
-      WATER: {
-        color: 'rgb(23,131,255)',
-        move: (cell, grid) => {
-          const pos = getCellPos(cell.x, cell.y)
-          if (!pos) return
-          const { row, col } = pos
-
-          const tryMove = (r, c) => {
-            if (r < 0 || r >= rows || c < 0 || c >= cols) return false
-            if (grid[r][c].material !== MATERIALS.VOID) return false
-            grid[r][c].material = MATERIALS.WATER
-            grid[row][col].material = MATERIALS.VOID
-            return true
-          }
-
-          if (tryMove(row + 1, col)) return
-
-          if (Math.random() < 0.5) {
-            if (tryMove(row, col - 1)) return
-            if (tryMove(row, col + 1)) return
-          } else {
-            if (tryMove(row, col + 1)) return
-            if (tryMove(row, col - 1)) return
-          }
-        }
-      },
-      STONE: {
-        color: 'rgb(128,128,128)',
-        move: (cell, grid) => {
-          const pos = getCellPos(cell.x, cell.y)
-          if (!pos) return
-          const {row, col} = pos
-          const nextRow = row + 1
-          if (nextRow < rows && grid[nextRow][col].material === MATERIALS.VOID) {
-            grid[nextRow][col].material = MATERIALS.STONE
-            grid[row][col].material = MATERIALS.VOID
-          }
-        }
-      },
-      METAL: {
-        color: 'rgb(54,54,54)',
-        move: null
-      },
-    }
-
-    const cell = {
-      x: 0,
+    const cell = new Cell({
+      X: 0,
       y: 0,
       width: 10,
       height: 10,
-      material: MATERIALS.VOID
-    }
+      material: new Void()
+    })
 
-    const rows = Math.floor(game.height / cell.height)
-    const cols = Math.floor(game.width  / cell.width)
-    
-    let grid = []
-    let animationFrameID = null
+    let grid = new Grid(game, cell)
 
     const mouse = {
       x: 0,
@@ -161,37 +93,28 @@
       isDrawing: false
     }
 
-    let selectedMaterial = MATERIALS.VOID
-
-    function getCellPos(x, y) {
-      const col = Math.floor(x / cell.width)
-      const row = Math.floor(y / cell.height)
-      if (row < 0 || row >= rows || col < 0 || col >= cols) return null
-      return { row, col }
+    const MATERIALS = {
+      VOID: new Void(),
+      Metal: new Metal(),
+      STONE: new StoneLike(),
+      SAND: new SandLike(),
+      WATER: new WaterLike(),
     }
 
-    function handleDrawing(row, col, material) {
+    let selectedMaterial = MATERIALS.VOID
+
+    function handleDrawing(row, col, grid, material) {
       if (!mouse.isDrawing) return
       if (row == null || col == null) return
-      const cell = grid[row][col]
+      const cell = grid.grid[row][col]
       if (cell.material == selectedMaterial) return
       cell.material = material
     }
 
-    function fillGrid() {
-      grid = Array.from({length: rows}, (_, row) => 
-        Array.from({length: cols}, (_, col) => ({
-          ...cell,
-          x: col * cell.width,
-          y: row * cell.height
-        }))
-      )
-    }
-
-    function drawGrid() {
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const cell = grid[row][col]
+    function drawGrid(grid) {
+      for (let row = 0; row < grid.rows; row++) {
+        for (let col = 0; col < grid.cols; col++) {
+          const cell = grid.grid[row][col]
           ctx.fillStyle = cell.material.color
           ctx.fillRect(cell.x, cell.y, cell.width, cell.height)
         }
@@ -199,24 +122,24 @@
     }
 
     function moveCells(grid) {
-      for (let row = rows - 1; row >= 0; row--) {
+      for (let row = grid.rows - 1; row >= 0; row--) {
         if (row % 2 === 0) {
-          for (let col = 0; col < cols; col++) {
-            const cell = grid[row][col]
+          for (let col = 0; col < grid.cols; col++) {
+            const cell = grid.grid[row][col]
             if (cell.material.move) cell.material.move(cell, grid)
           }
         } else {
-          for (let col = cols - 1; col >= 0; col--) {
-            const cell = grid[row][col]
+          for (let col = grid.cols - 1; col >= 0; col--) {
+            const cell = grid.grid[row][col]
             if (cell.material.move) cell.material.move(cell, grid)
           }
         }
       }
     }
 
-    function drawHighlight(row, col) {
+    function drawHighlight(row, col, grid) {
       if (row == null || col == null) return
-      const cell = grid[row][col]
+      const cell = grid.grid[row][col]
       const [r, g, b] = cell.material.color.match(/\d+/g).map(channel => Math.min(255, +channel + 40))
       ctx.fillStyle = `rgb(${r},${g},${b})`
       ctx.fillRect(cell.x, cell.y, cell.width, cell.height)
@@ -267,26 +190,25 @@
 
     function start() {
       stop()
-      fillGrid()
+      grid = new Grid(game, cell)
       animationFrameID = window.requestAnimationFrame(process)
     }
 
     function process() {
 
       clearElement(game)
-      drawGrid()
+      drawGrid(grid)
 
       moveCells(grid)
-      const mousePos = getCellPos(mouse.x, mouse.y)
+      const mousePos = grid.getCellPos(mouse.x, mouse.y)
 
       if (mousePos) {
-        drawHighlight(mousePos.row, mousePos.col)
-        handleDrawing(mousePos.row, mousePos.col, selectedMaterial)
+        drawHighlight(mousePos.row, mousePos.col, grid)
+        handleDrawing(mousePos.row, mousePos.col, grid, selectedMaterial)
       }
 
       animationFrameID = window.requestAnimationFrame(process)
     }
-
     addMaterialRadioButtons(MATERIALS)
     start()
     
