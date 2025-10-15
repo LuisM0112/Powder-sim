@@ -12,9 +12,9 @@
 
 .flex {
   display: flex;
-  gap: 5px;
   justify-content: center;
   align-items: center;
+  gap: 5px;
 }
 
 body {
@@ -33,13 +33,15 @@ body {
 }
 
 legend {
+  font-weight: bold;
   font-size: large;
   padding: 5px;
-  font-weight: bold;
+}
+
+label {
+  cursor: pointer;
 }
 
 #reset-btn {
-  height: fit-content;
-  width: fit-content;
   padding: 10px;
 }
