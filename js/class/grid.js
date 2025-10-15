@@ -1,5 +1,5 @@
-import { Cell } from "@/class/cell.js"
-import { Void } from "@/class/material.js"
+import { Cell } from '@/class/cell.js'
+import { Void } from '@/class/material.js'
 
 export class Grid {
   constructor(game, cell) {
@@ -16,7 +16,7 @@ export class Grid {
           y: row * cell.height,
           width: cell.width,
           height: cell.height,
-          material: new Void()
+          material: new Void(),
         })
       )
     )
